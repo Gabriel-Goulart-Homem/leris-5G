@@ -81,18 +81,23 @@ def main():
     bind_layers(RLC, PDCP)
     bind_layers(PDCP,IP)
     bind_layers(IP, TCP)
-
+    
+    start_event = threading.Event();
+    #print(time.time())
     for i in range(int(sys.argv[2])):
-        x = threading.Thread(target=Sender, args=(50000+i, 1,))
+        x = threading.Thread(target=Sender, args=(50000+i, 1,start_event,))
         x.start()
         print("Criada thread numero: "+str(i)+ " da vlan 1")
     print("\n")
+    #print(time.time())
     for i in range(int(sys.argv[3])):
-        x = threading.Thread(target=Sender, args=(51000+i, 2,))
+        x = threading.Thread(target=Sender, args=(51000+i, 2,start_event))
         x.start()
         print("Criada thread numero: "+str(i)+ " da vlan 2")
     #Sender(50000,1)
-    monitorKey()
+    #print(time.time())
+    start_event.set()
+    #monitorKey()
 
 def monitorKey():
     while True:
@@ -103,21 +108,30 @@ def monitorKey():
         except:
             os._exit(0)
 
-def Sender(port, vlan):   
-    addr = socket.gethostbyname(sys.argv[1])
-    iface = get_if()
+def Sender(port, vlan, event):
+    if not event.wait(4):
+        print("error")
+        os._exit(0)
+    else:
+        addr = socket.gethostbyname(sys.argv[1])
+        iface = get_if()
 
-    print("Mandando pacotes na porta "+ str(port)+ " e vlan "+ str(vlan))
-    #print ("sending on interface %s to %s" % (iface, str(addr))) 
-    pkt = Ether(src=get_if_hwaddr(iface), dst="ac:1f:6b:67:06:40",type=0x8100) / Dot1Q(vlan=vlan,type=0x8100)
-    pkt = pkt / MAC()
-    pkt = pkt / RLC()
-    pkt = pkt / PDCP()
-    pkt = pkt / IP(dst=addr, proto=6) / TCP(dport=port, sport=port) / Raw("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-    #pkt.show2()
-    print("Iniciado sport: "+str(port))
-    temp = sendpfast(pkt, iface=iface, pps=1000, loop=10000, parse_results=True, file_cache = 0)
-    print("Finalizado sport: "+str(port))
+        #print("Mandando pacotes na porta "+ str(port)+ " e vlan "+ str(vlan))
+
+        #print ("sending on interface %s to %s" % (iface, str(addr))) 
+        pkt = Ether(src=get_if_hwaddr(iface), dst="ac:1f:6b:67:06:40",type=0x8100) / Dot1Q(vlan=vlan,type=0x8100)
+        pkt = pkt / MAC()
+        pkt = pkt / RLC()
+        pkt = pkt / PDCP()
+        pkt = pkt / IP(dst=addr, proto=6) / TCP(dport=port, sport=port) / Raw("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        #pkt.show2()
+        print("Iniciado sport: "+str(port))
+        #print(time.time())
+        temp = sendpfast(pkt, iface=iface, pps=1000, loop=10000, parse_results=True, file_cache = 0)
+        #temp = sendp(pkt,iface=iface,inter=0.0001, count=10000, verbose=False)
+        #print("\n")
+        #print(time.time())
+        print("Finalizado sport: "+str(port))
 
 if __name__ == '__main__':
     main()
